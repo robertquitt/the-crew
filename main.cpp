@@ -1,85 +1,164 @@
 #include <Card.h>
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <iterator>
 #include <random>
+#include <set>
+#include <vector>
 
 using std::cout;
 using std::endl;
 
 struct GameState {
-  GameState() {
-    cards = getAllCards();
-    // deterministic shuffling
-    std::mt19937 g(0);
-    std::shuffle(cards.begin(), cards.end(), g);
-    hand0EndHand1Begin = cards.begin() + 10;
-    hand1EndHand2Begin = hand0EndHand1Begin + 10;
-    hand2EndHand3Begin = hand1EndHand2Begin + 10;
-    hand3EndPlayedBegin = hand2EndHand3Begin + 10;
-    playerToMove = 0;
-  }
-  GameState(GameState &other, Card cardPlayed, int playerToMove): playerToMove(playerToMove) {
-    hand0EndHand1Begin = std::copy_if(
-        other.cards.begin(), other.hand0EndHand1Begin, cards.begin(),
-        [&cardPlayed](const Card &c) { return c == cardPlayed; });
-    hand1EndHand2Begin = std::copy_if(
-        other.hand0EndHand1Begin, other.hand1EndHand2Begin, hand0EndHand1Begin,
-        [&cardPlayed](const Card &c) { return c == cardPlayed; });
-    hand2EndHand3Begin = std::copy_if(
-        other.hand1EndHand2Begin, other.hand2EndHand3Begin, hand1EndHand2Begin,
-        [&cardPlayed](const Card &c) { return c == cardPlayed; });
-    hand3EndPlayedBegin = std::copy_if(
-        other.hand2EndHand3Begin, other.hand3EndPlayedBegin, hand2EndHand3Begin,
-        [&cardPlayed](const Card &c) { return c == cardPlayed; });
-    *(cards.end()-1) = cardPlayed;
-  }
-  std::array<Card, 40> cards;
-  std::array<Card, 40>::iterator hand0EndHand1Begin;
-  std::array<Card, 40>::iterator hand1EndHand2Begin;
-  std::array<Card, 40>::iterator hand2EndHand3Begin;
-  std::array<Card, 40>::iterator hand3EndPlayedBegin;
+  std::vector<Card> pile;
+  std::array<std::set<Card>, 4> hands;
   int playerToMove;
+  int trickSize;
+  CardSuit currentCardSuit;
+
+  GameState() : playerToMove(0), trickSize(0), currentCardSuit(CardSuit::Any) {
+    auto allCards = getAllCards();
+    std::mt19937 g(0);
+    std::shuffle(allCards.begin(), allCards.end(), g);
+    auto it = allCards.begin();
+    for (auto &hand : hands) {
+      hand = std::set<Card>(it, it + 10);
+      it = it + 10;
+    }
+  }
 };
 
-void playGame() { auto startGameState = GameState(); }
+struct Action {
+  Card cardPlayed;
+  int player;
+  CardSuit cs;
+  Action(Card cardPlayed, int player, CardSuit cs)
+      : cardPlayed(cardPlayed), player(player), cs(cs) {}
+};
 
-void playGame(GameState &gs) {
-  const auto begin = gs.playerToMove == 0
-                         ? gs.cards.begin()
-                         : gs.playerToMove == 1
-                               ? gs.hand0EndHand1Begin
-                               : gs.playerToMove == 2 ? gs.hand1EndHand2Begin
-                                                      : gs.hand2EndHand3Begin;
-  const auto end = gs.playerToMove == 0
-                       ? gs.hand0EndHand1Begin
-                       : gs.playerToMove == 1
-                             ? gs.hand1EndHand2Begin
-                             : gs.playerToMove == 2 ? gs.hand2EndHand3Begin
-                                                    : gs.hand3EndPlayedBegin;
+struct Solver {
+  GameState gs;
+  std::vector<Action> actions;
+  GameState solutionGameState;
+  std::vector<Action> solutionActions;
+  int counter;
+  bool run;
+  std::chrono::time_point<std::chrono::steady_clock> start;
 
-  const int trickSize = (gs.cards.end() - gs.hand3EndPlayedBegin) % 4;
 
-  CardSuit playableSuit;
-  if (trickSize == 0) {
-    playableSuit = CardSuit::Any;
-  } else {
-    playableSuit = getCardSuit(*(gs.cards.end() - trickSize));
-    if (std::find_if(begin, end, [playableSuit](Card c){ return suitMatches(c, playableSuit); }) == end) {
-      playableSuit = CardSuit::Any;
+  Solver() : counter(0), run(true) {
+    start = std::chrono::steady_clock::now();
+  }
+
+  void solve() {
+    if (!run) {
+      return;
+    }
+    counter++;
+    /* if (counter > 40) { */
+    /*   run = false; */
+    /* } */
+    if (counter % 1000000 == 0) {
+      auto callTime = std::chrono::steady_clock::now();
+      cout << "seconds: " << std::chrono::duration_cast<std::chrono::milliseconds>(callTime - start).count()/1000.0 << endl;
+      cout << "counter: " << counter << endl;
+      printState();
+    }
+
+    std::array<Card, 10> possibleCards;
+    auto possibleCardsEnd = possibleCards.begin();
+    getPossibleCards(possibleCards, possibleCardsEnd);
+    for (auto possibleCardsIt = possibleCards.begin();
+         possibleCardsIt != possibleCardsEnd; possibleCardsIt++) {
+      perform(*possibleCardsIt);
+      solve();
+      unperform();
     }
   }
 
-  for (auto cardIt = begin; cardIt != end; cardIt++) {
-    if (suitMatches(*cardIt, playableSuit)) {
-      auto newGameState = GameState(gs, *cardIt);
-      playGame(newGameState);
+  void printState() {
+    cout << "    printState()" << endl;
+    cout << "currentCardSuit: " << cardSuitToString(gs.currentCardSuit) << endl;
+    cout << "hands=[";
+    for (const auto &hand : gs.hands) {
+      cout << "[";
+      for (Card c : hand) {
+        cout << cardToString(c);
+        if (c != *hand.rbegin()) {
+          cout << ",";
+        }
+      }
+      cout << "]";
+      if (hand != gs.hands.back()) {
+        cout << ",";
+      }
+    }
+    cout << "]" << endl;
+    cout << "pile=[";
+    for (Card c : gs.pile) {
+      cout << cardToString(c);
+      if (c != gs.pile.back()) {
+        cout << ", ";
+      }
+    }
+    cout << "]" << endl;
+    cout << "trickSize: " << gs.trickSize << endl;
+    cout << "actions=[";
+    for (Action a : actions) {
+      cout << "{" << cardToString(a.cardPlayed) << "," << a.player << "}";
+      if (a.cardPlayed != actions.back().cardPlayed) {
+        cout << ", ";
+      }
+    }
+    cout << "]" << endl;
+  }
+  void getPossibleCards(std::array<Card, 10> &possibleCards,
+                        std::array<Card, 10>::iterator &possibleCardsEnd) {
+    const auto &hand = gs.hands.at(gs.playerToMove);
+    possibleCardsEnd = std::copy_if(
+        hand.begin(), hand.end(), possibleCardsEnd,
+        [this](Card c) { return suitMatches(c, gs.currentCardSuit); });
+
+    if (possibleCardsEnd == possibleCards.begin()) {
+      possibleCardsEnd = std::copy(hand.begin(), hand.end(), possibleCardsEnd);
     }
   }
-}
+
+  void perform(const Card c) {
+    auto &hand = gs.hands.at(gs.playerToMove);
+    hand.erase(c);
+    gs.pile.push_back(c);
+    actions.emplace_back(c, gs.playerToMove, gs.currentCardSuit);
+    if (gs.currentCardSuit == CardSuit::Any) {
+      gs.currentCardSuit = getCardSuit(c);
+    }
+    if (gs.trickSize == 3) {
+      int winner = 0; // TODO
+      gs.playerToMove = winner;
+      gs.currentCardSuit = CardSuit::Any;
+    } else {
+      gs.playerToMove = (gs.playerToMove + 1) % 4;
+    }
+    gs.trickSize = (gs.trickSize + 1) % 4;
+  }
+
+  void unperform() {
+    Action a = actions.back();
+    auto &hand = gs.hands.at(a.player);
+    hand.insert(a.cardPlayed);
+    gs.playerToMove = a.player;
+    gs.currentCardSuit = a.cs;
+    gs.trickSize = (gs.trickSize+3)%4;
+    gs.pile.pop_back();
+    actions.pop_back();
+  }
+};
 
 int main() {
-  auto startState = GameState();
-  playGame(startState);
+  Solver solver;
+  solver.solve();
+  cout << solver.counter << endl;
+  /* solver.printState(); */
   return 0;
 }

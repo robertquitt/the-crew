@@ -1,15 +1,7 @@
 #include <array>
+#include <iostream>
 
 enum class Card {
-  Red1,
-  Red2,
-  Red3,
-  Red4,
-  Red5,
-  Red6,
-  Red7,
-  Red8,
-  Red9,
   Blue1,
   Blue2,
   Blue3,
@@ -28,6 +20,15 @@ enum class Card {
   Green7,
   Green8,
   Green9,
+  Pink1,
+  Pink2,
+  Pink3,
+  Pink4,
+  Pink5,
+  Pink6,
+  Pink7,
+  Pink8,
+  Pink9,
   Yellow1,
   Yellow2,
   Yellow3,
@@ -44,9 +45,9 @@ enum class Card {
 };
 
 enum class CardSuit {
-	Red,
 	Blue,
 	Green,
+	Pink,
 	Yellow,
 	Rocket,
 	Any,
@@ -55,9 +56,9 @@ enum class CardSuit {
 
 std::array<Card, 40> getAllCards() {
   return std::array<Card, 40>{
-      Card::Rocket1, Card::Rocket2, Card::Rocket3, Card::Rocket4, Card::Red1,
-      Card::Red2,    Card::Red3,    Card::Red4,    Card::Red5,    Card::Red6,
-      Card::Red7,    Card::Red8,    Card::Red9,    Card::Blue1,   Card::Blue2,
+      Card::Rocket1, Card::Rocket2, Card::Rocket3, Card::Rocket4, Card::Pink1,
+      Card::Pink2,    Card::Pink3,    Card::Pink4,    Card::Pink5,    Card::Pink6,
+      Card::Pink7,    Card::Pink8,    Card::Pink9,    Card::Blue1,   Card::Blue2,
       Card::Blue3,   Card::Blue4,   Card::Blue5,   Card::Blue6,   Card::Blue7,
       Card::Blue8,   Card::Blue9,   Card::Green1,  Card::Green2,  Card::Green3,
       Card::Green4,  Card::Green5,  Card::Green6,  Card::Green7,  Card::Green8,
@@ -70,8 +71,8 @@ bool suitMatches(Card c, CardSuit cs) {
   switch (cs) {
   case CardSuit::Rocket:
     return Card::Rocket1 <= c && c <= Card::Rocket4;
-  case CardSuit::Red:
-    return Card::Red1 <= c && c <= Card::Red9;
+  case CardSuit::Pink:
+    return Card::Pink1 <= c && c <= Card::Pink9;
   case CardSuit::Blue:
     return Card::Blue1 <= c && c <= Card::Blue9;
   case CardSuit::Green:
@@ -84,20 +85,61 @@ bool suitMatches(Card c, CardSuit cs) {
 }
 
 CardSuit getCardSuit(Card c) {
-  if (Card::Red1 <= c && c <= Card::Red9) {
-    return CardSuit::Red;
-  } else if (Card::Blue1 <= c && c <= Card::Blue9) {
-    return CardSuit::Blue;
-  } else if (Card::Green1 <= c && c <= Card::Green9) {
-    return CardSuit::Green;
-  } else if (Card::Yellow1 <= c && c <= Card::Yellow9) {
-    return CardSuit::Yellow;
-  } else {
-    return CardSuit::Rocket;
+  switch((int)c/9) {
+	  case 0:
+		  return CardSuit::Blue;
+	  case 1:
+		  return CardSuit::Green;
+	  case 2:
+		  return CardSuit::Pink;
+	  case 3:
+		  return CardSuit::Yellow;
+	  case 4:
+		  return CardSuit::Rocket;
   }
 }
-std::array<Card, 4>::iterator winner(const std::array<Card, 4> &cards, CardSuit cs) {
-	if (cs == CardSuit::Rocket) {
-		return std::max_element(cards.begin(), cards.end());
+std::string cardSuitToString(CardSuit cs) {
+	switch (cs) {
+	case CardSuit::Blue:
+		return "B";
+	case CardSuit::Green:
+		return "G";
+	case CardSuit::Pink:
+		return "P";
+	case CardSuit::Yellow:
+		return "Y";
+	case CardSuit::Rocket:
+		return "R";
+	case CardSuit::Any:
+		return "Any";
 	}
+}
+std::string cardToString(Card c) {
+	CardSuit cs = getCardSuit(c);
+	Card card1;
+	std::string suit;
+	switch (cs) {
+	case CardSuit::Blue:
+		card1 = Card::Blue1;
+		suit = "B";
+		break;
+	case CardSuit::Green:
+		card1 = Card::Green1;
+		suit = "G";
+		break;
+	case CardSuit::Pink:
+		card1 = Card::Pink1;
+		suit = "P";
+		break;
+	case CardSuit::Yellow:
+		card1 = Card::Yellow1;
+		suit = "Y";
+		break;
+	case CardSuit::Rocket:
+		card1 = Card::Rocket1;
+		suit = "R";
+		break;
+	}
+	int number = (int)c - (int)card1 + 1;
+	return suit + std::to_string(number);
 }
