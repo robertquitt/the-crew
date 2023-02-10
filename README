@@ -1,0 +1,5 @@
+The Crew Solver
+
+I really like playing "The Crew: The Quest for Planet Nine". However, sometimes I lose and I wonder whether there was a particular sequence of moves from a given game state that would result in a win.
+
+I wrote this solver a while back in an attempt to answer that question. However I lost interest. I figured I ought to upload it to github in case my computer explodes and I want to work on this again.
